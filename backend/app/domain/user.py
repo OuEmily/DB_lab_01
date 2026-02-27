@@ -17,7 +17,7 @@ from .exceptions import InvalidEmailError
 @dataclass
 class User:
     email: str
-    name: str
+    name: str = ""
     id: Optional[uuid.UUID] = None
     created_at: Optional[datetime] = None
 

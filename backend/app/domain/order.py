@@ -36,7 +36,7 @@ class OrderItem:
     product_name: str
     price: Decimal
     quantity: int
-    order_id: Optional[uuid.UUID]
+    order_id: Optional[uuid.UUID] = None
     id: Optional[uuid.UUID] = None
 
     def __post_init__(self):
@@ -93,33 +93,45 @@ class Order:
     
     def pay(self):
         if self.status == OrderStatus.PAID:
-            raise OrderAlreadyPaidError("Нельзя оплатить товар дважды!")
+            raise OrderAlreadyPaidError(f"Order {self.id} is already paid!")
         if self.status == OrderStatus.CANCELLED:
-            raise OrderCancelledError("Нельзя оплатить отмененный заказ!")
+            raise OrderCancelledError(f"Order {self.id}! is cancelled")
         self.status = OrderStatus.PAID
         self.status_history.append(OrderStatusChange(order_id=self.id, status=self.status))
 
     def cancel(self):
         if self.status == OrderStatus.CANCELLED:
-            raise OrderCancelledError('Заказ уже отменен!')
+            raise OrderCancelledError(f'Order {self.id} is already cancelled!')
+        if self.status == OrderStatus.PAID:
+            raise OrderAlreadyPaidError(f"Order {self.id} is already paid!")
         self.status = OrderStatus.CANCELLED
         self.status_history.append(OrderStatusChange(order_id=self.id, status=self.status))
     
     def ship(self):
+        if self.status != OrderStatus.PAID:
+            raise ValueError(f"Order {self.status} must be paid before shipping!")
+        if self.status == OrderStatus.SHIPPED:
+            raise ValueError(f'Order {self.id} is already shipped!')
         self.status = OrderStatus.SHIPPED
         self.status_history.append(OrderStatusChange(order_id=self.id, status=self.status))
     
     def complete(self):
+        if self.status != OrderStatus.SHIPPED:
+            raise ValueError(f"Order {self.id} must be shipped before completion")
+        if self.status == OrderStatus.COMPLETED:
+            raise ValueError(f'Order {self.id} is already completed')
         self.status = OrderStatus.COMPLETED
         self.status_history.append(OrderStatusChange(order_id=self.id, status=self.status))
     
     def add_item(self, product_name: str, price: Decimal, quantity: int) -> OrderItem:
+        if self.status == OrderStatus.CANCELLED:
+            raise OrderCancelledError("Order {self.id} is already cancelled!")
         item = OrderItem(product_name=product_name, price=price, quantity=quantity, order_id=self.id)
         self.items.append(item)
         self.total_amount += item.subtotal
         if self.total_amount < 0:
             self.total_amount -= item.subtotal
-            raise InvalidAmountError(f"Сумма заказа не может быть отрицательной!")
+            raise InvalidAmountError(f"Order total cannot be negative!")
         return item
 
 
